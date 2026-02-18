@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  name         String
+  type         String // CASH, BANK, CREDIT, CRYPTO, INVESTMENT
+  balance      Float         @default(0)
+  icon         String?
+  color        String? // hex color for charts
+  isActive     Boolean       @default(true)
+  liabilityId  String? // link credit card account to its liability
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+model Category {
+  id           String        @id @default(cuid())
+  name         String
+  type         String // INCOME, EXPENSE, TRANSFER
+  group        String? // OPEX, DAILY_FUEL, BUSINESS
+  icon         String?
+  color        String?
+  isActive     Boolean       @default(true)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  amount      Float
+  date        DateTime @default(now())
+  note        String?
+  type        String // INCOME, EXPENSE, TRANSFER
+  accountId   String
+  categoryId  String
+  toAccountId String?
+  liabilityId String? // link to installment payment
+  account     Account  @relation(fields: [accountId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Liability {
+  id              String    @id @default(cuid())
+  name            String
+  totalAmount     Float
+  paidAmount      Float     @default(0)
+  monthlyDue      Float
+  dueDay          Int // 1-31
+  endDate         DateTime?
+  type            String // CREDIT_CARD, INSTALLMENT, SUBSCRIPTION
+  statementDay    Int?
+  currentDebt     Float     @default(0) // for credit cards: current billing
+  interestRate    Float? // for installments
+  description     String?
+  linkedAccountId String? // link to credit card Account
+  createdAt       DateTime  @default(now())
+}
+
+model Achievement {
+  id           String    @id @default(cuid())
+  title        String
+  description  String
+  conditionKey String
+  icon         String
+  isUnlocked   Boolean   @default(false)
+  unlockedAt   DateTime?
+}
+
+model Goal {
+  id              String    @id @default(cuid())
+  name            String
+  targetAmount    Float
+  currentAmount   Float     @default(0)
+  deadline        DateTime?
+  icon            String?
+  linkedAccountId String? // link to investment account
+  createdAt       DateTime  @default(now())
+}
+
+model CryptoHolding {
+  id         String   @id @default(cuid())
+  coin       String
+  symbol     String
+  quantity   Float
+  entryPrice Float
+  buyDate    DateTime @default(now())
+  note       String?
+}
