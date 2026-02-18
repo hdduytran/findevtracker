@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { formatCurrency, daysUntil } from "@/lib/utils";
+import { Prisma } from "@/generated/prisma/client";
+import { formatCurrency, formatCompactNumber, daysUntil } from "@/lib/utils";
 import {
   Wallet,
   Banknote,
@@ -16,6 +17,7 @@ import { IncomeDonutChart } from "@/components/charts/income-donut";
 import { ExpensePieChart } from "@/components/charts/expense-pie";
 import { CalendarView } from "@/components/charts/calendar-view";
 import { MonthlyBarChart } from "@/components/charts/monthly-bar-chart";
+import { AssetAllocationDonut } from "@/components/charts/asset-allocation-donut";
 import { PeriodFilter } from "@/components/period-filter";
 import { parsePeriod, getPeriodRange, getPeriodLabel } from "@/lib/period";
 import { Suspense } from "react";
@@ -45,7 +47,7 @@ async function getDashboardData(period: string, from?: string, to?: string) {
   const realCash = totalCash - upcomingDues;
 
   // Period-filtered transactions
-  const whereDate: any = {};
+  const whereDate: Prisma.TransactionWhereInput = {};
   if (period !== "all") {
     whereDate.date = { gte: startDate };
     if (endDate) {
@@ -191,7 +193,7 @@ export default async function DashboardPage({
             <span className="text-xs text-muted-foreground">Tổng tài sản</span>
           </div>
           <p className="text-xl lg:text-2xl font-bold gradient-text">
-            {formatCurrency(data.netWorth)}
+            {formatCompactNumber(data.netWorth)}
           </p>
         </div>
 
@@ -205,7 +207,7 @@ export default async function DashboardPage({
             </span>
           </div>
           <p className="text-xl lg:text-2xl font-bold text-emerald">
-            {formatCurrency(data.realCash)}
+            {formatCompactNumber(data.realCash)}
           </p>
         </div>
 
@@ -219,7 +221,7 @@ export default async function DashboardPage({
             </span>
           </div>
           <p className="text-lg font-bold text-violet">
-            {formatCurrency(data.totalIncome)}
+            {formatCompactNumber(data.totalIncome)}
           </p>
         </div>
 
@@ -233,7 +235,7 @@ export default async function DashboardPage({
             </span>
           </div>
           <p className="text-lg font-bold text-rose">
-            {formatCurrency(data.totalExpenses)}
+            {formatCompactNumber(data.totalExpenses)}
           </p>
         </div>
       </div>
@@ -290,66 +292,13 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Asset Allocation */}
       <div className="glass rounded-2xl p-5">
         <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-          <ArrowUpRight className="w-4 h-4 text-amber" />
-          Giao dịch gần đây
+          <PieChartIcon className="w-4 h-4 text-amber" />
+          Phân bổ tài sản
         </h2>
-        <div className="space-y-2">
-          {data.transactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Không có giao dịch {getPeriodLabel(period, from, to)}
-            </p>
-          ) : (
-            data.transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-white/5 transition-colors duration-200 cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      tx.type === "INCOME"
-                        ? "bg-emerald/10"
-                        : tx.type === "EXPENSE"
-                        ? "bg-rose/10"
-                        : "bg-cyan/10"
-                    }`}
-                  >
-                    {tx.type === "INCOME" ? (
-                      <ArrowUpRight className="w-4 h-4 text-emerald" />
-                    ) : tx.type === "EXPENSE" ? (
-                      <ArrowDownRight className="w-4 h-4 text-rose" />
-                    ) : (
-                      <ArrowUpRight className="w-4 h-4 text-cyan" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {tx.note || tx.category.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {tx.category.name} • {tx.account.name}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`text-sm font-semibold ${
-                    tx.type === "INCOME"
-                      ? "text-emerald"
-                      : tx.type === "EXPENSE"
-                      ? "text-rose"
-                      : "text-cyan"
-                  }`}
-                >
-                  {tx.type === "INCOME" ? "+" : "-"}
-                  {formatCurrency(tx.amount)}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
+        <AssetAllocationDonut accounts={data.accounts} />
       </div>
 
       {/* Bottom Row */}

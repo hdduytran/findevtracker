@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Pencil } from "lucide-react";
+import * as Icons from "lucide-react";
+import { IconPicker } from "@/components/icon-picker";
 import { formatCurrency } from "@/lib/utils";
 import {
   Dialog,
@@ -157,7 +159,14 @@ export function AccountSettings() {
                 className="w-10 h-10 rounded-full flex items-center justify-center text-slate-900 font-bold"
                 style={{ backgroundColor: acc.color || "#555" }}
               >
-                {acc.name.charAt(0).toUpperCase()}
+                {(() => {
+                  const Icon = (Icons as any)[acc.icon || "Wallet"];
+                  return Icon ? (
+                    <Icon className="w-5 h-5" />
+                  ) : (
+                    acc.name.charAt(0).toUpperCase()
+                  );
+                })()}
               </div>
               <div>
                 <p className="font-medium flex items-center gap-2">
@@ -239,6 +248,14 @@ export function AccountSettings() {
                   className="bg-white/5 border-white/10 mt-1"
                 />
               </div>
+            </div>
+
+            <div className="mb-4">
+              <Label className="mb-2 block">Biểu tượng</Label>
+              <IconPicker
+                value={formData.icon}
+                onChange={(val) => setFormData({ ...formData, icon: val })}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

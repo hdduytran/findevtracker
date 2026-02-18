@@ -1,18 +1,81 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const limit = parseInt(searchParams.get("limit") || "20");
+  const skip = parseInt(searchParams.get("skip") || "0");
+  const period = searchParams.get("period") || "all";
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+
+  let where: any = {};
+
+  // Date filtering logic matching lib/period.ts
+  if (period !== "all") {
+    const now = new Date();
+    let startDate;
+
+    if (period === "custom" && from && to) {
+      where.date = {
+        gte: new Date(from),
+        lte: new Date(to),
+      };
+    } else {
+      if (period === "day") {
+        startDate = new Date(now.setHours(0, 0, 0, 0));
+      } else if (period === "week") {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        startDate = new Date(now.setDate(diff));
+        startDate.setHours(0, 0, 0, 0);
+      } else if (period === "month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
+      if (startDate) {
+        where.date = { gte: startDate };
+      }
+    }
+  }
+
   const transactions = await prisma.transaction.findMany({
+    where,
     include: { category: true, account: true },
     orderBy: { date: "desc" },
+    take: limit,
+    skip: skip,
   });
+
   return NextResponse.json(transactions);
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { amount, type, accountId, categoryId, note, toAccountId } = body;
+    let {
+      amount,
+      type,
+      accountId,
+      categoryId,
+      note,
+      toAccountId,
+      liabilityId,
+    } = body;
+
+    // Handle missing category for TRANSFER (e.g. Credit Card payment)
+    if (type === "TRANSFER" && !categoryId) {
+      const defaultCat = await prisma.category.findFirst({
+        where: { type: "TRANSFER" },
+      });
+      if (defaultCat) {
+        categoryId = defaultCat.id;
+      } else {
+        // Fallback to any category to satisfy schema
+        const anyCat = await prisma.category.findFirst();
+        if (anyCat) categoryId = anyCat.id;
+      }
+    }
 
     if (!amount || !type || !accountId || !categoryId) {
       return NextResponse.json(
@@ -29,7 +92,7 @@ export async function POST(request: NextRequest) {
         categoryId,
         note: note || null,
         toAccountId: toAccountId || null,
-        liabilityId: body.liabilityId || null,
+        liabilityId: liabilityId || null,
       },
     });
 
@@ -63,6 +126,19 @@ export async function POST(request: NextRequest) {
           where: { id: account.liabilityId },
           data: { currentDebt: { increment: amountFloat } },
         });
+      }
+
+      // 3. If linked to a specific Liability (e.g. Installment payment), increment paidAmount
+      if (body.liabilityId) {
+        const liability = await prisma.liability.findUnique({
+          where: { id: body.liabilityId },
+        });
+        if (liability && liability.type === "INSTALLMENT") {
+          await prisma.liability.update({
+            where: { id: body.liabilityId },
+            data: { paidAmount: { increment: amountFloat } },
+          });
+        }
       }
     } else if (type === "TRANSFER" && toAccountId) {
       // 1. Decrement source

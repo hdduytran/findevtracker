@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -154,7 +154,7 @@ export function AddTransactionFAB({
                 <SelectTrigger className="bg-white/5 border-white/10 mt-1">
                   <SelectValue placeholder="Chọn tài khoản" />
                 </SelectTrigger>
-                <SelectContent className="glass border-white/10">
+                <SelectContent className="bg-[#1E293B] border-white/10">
                   {accounts.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.name}
@@ -174,7 +174,7 @@ export function AddTransactionFAB({
                   <SelectTrigger className="bg-white/5 border-white/10 mt-1">
                     <SelectValue placeholder="Chọn tài khoản đích" />
                   </SelectTrigger>
-                  <SelectContent className="glass border-white/10">
+                  <SelectContent className="bg-[#1E293B] border-white/10">
                     {accounts.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
                         {a.name}
@@ -192,7 +192,7 @@ export function AddTransactionFAB({
                 <SelectTrigger className="bg-white/5 border-white/10 mt-1">
                   <SelectValue placeholder="Chọn danh mục" />
                 </SelectTrigger>
-                <SelectContent className="glass border-white/10">
+                <SelectContent className="bg-[#1E293B] border-white/10">
                   {filteredCategories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Pencil, Layers } from "lucide-react";
+import { IconPicker } from "@/components/icon-picker";
+import * as Icons from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -164,7 +166,10 @@ export function CategorySettings() {
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-900 font-bold text-xs"
                 style={{ backgroundColor: cat.color || "#555" }}
               >
-                <Layers className="w-4 h-4" />
+                {(() => {
+                  const Icon = (Icons as any)[cat.icon || "Tag"] || Layers;
+                  return <Icon className="w-4 h-4" />;
+                })()}
               </div>
               <div>
                 <p className="font-medium text-sm flex items-center gap-2">
@@ -258,6 +263,14 @@ export function CategorySettings() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="mb-4">
+              <Label className="mb-2 block">Biểu tượng</Label>
+              <IconPicker
+                value={formData.icon}
+                onChange={(val) => setFormData({ ...formData, icon: val })}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

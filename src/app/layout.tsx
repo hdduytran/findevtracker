@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className={`${ibmPlexSans.variable} font-sans antialiased`}>
         <div className="flex min-h-screen">
           <Navigation />
-          <main className="flex-1 pb-20 lg:pb-0 lg:pl-64">
+          <main className="flex-1 pb-32 lg:pb-0 lg:pl-64">
             <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
               {children}
             </div>

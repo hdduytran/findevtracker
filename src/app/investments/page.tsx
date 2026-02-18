@@ -1,13 +1,9 @@
 import { prisma } from "@/lib/db";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  Bitcoin,
-  TrendingUp,
-  TrendingDown,
-  Vault,
-  ArrowUpRight,
-} from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { Vault, ArrowUpRight } from "lucide-react";
 import { PeriodFilter } from "@/components/period-filter";
+import { InvestmentList } from "@/components/investment-list";
+import { EditGoalDialog } from "@/components/edit-goal-dialog";
 import { parsePeriod, getPeriodRange, getPeriodLabel } from "@/lib/period";
 import { Suspense } from "react";
 
@@ -108,93 +104,8 @@ export default async function InvestmentsPage({
         </div>
       </div>
 
-      {/* Crypto Spot Log */}
-      <div className="glass rounded-2xl p-5">
-        <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-          <Bitcoin className="w-4 h-4 text-amber" />
-          Crypto Spot Log ({getPeriodLabel(period)})
-        </h2>
-        {cryptoWithPnL.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            Không có giao dịch crypto {getPeriodLabel(period)}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {cryptoWithPnL.map((h) => (
-              <div
-                key={h.id}
-                className="glass rounded-xl p-4 glass-hover cursor-pointer"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber/10 flex items-center justify-center">
-                      <span className="text-sm font-bold text-amber">
-                        {h.symbol}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold">{h.coin}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {h.quantity} {h.symbol}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold">
-                      {formatCurrency(h.currentValue)}
-                    </p>
-                    <div
-                      className={`flex items-center gap-1 text-xs ${
-                        h.pnl >= 0 ? "text-emerald" : "text-rose"
-                      }`}
-                    >
-                      {h.pnl >= 0 ? (
-                        <TrendingUp className="w-3 h-3" />
-                      ) : (
-                        <TrendingDown className="w-3 h-3" />
-                      )}
-                      <span>
-                        {h.pnlPercent >= 0 ? "+" : ""}
-                        {h.pnlPercent.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="bg-white/5 rounded-lg p-2">
-                    <p className="text-muted-foreground">Giá mua</p>
-                    <p className="font-medium mt-0.5">
-                      {formatCurrency(h.entryPrice)}
-                    </p>
-                  </div>
-                  <div className="bg-white/5 rounded-lg p-2">
-                    <p className="text-muted-foreground">Giá hiện tại</p>
-                    <p className="font-medium mt-0.5">
-                      {formatCurrency(h.currentPrice)}
-                    </p>
-                  </div>
-                  <div className="bg-white/5 rounded-lg p-2">
-                    <p className="text-muted-foreground">PnL</p>
-                    <p
-                      className={`font-medium mt-0.5 ${
-                        h.pnl >= 0 ? "text-emerald" : "text-rose"
-                      }`}
-                    >
-                      {h.pnl >= 0 ? "+" : ""}
-                      {formatCurrency(h.pnl)}
-                    </p>
-                  </div>
-                </div>
-                {h.note && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {h.note} • {formatDate(h.buyDate)}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Investment Portfolio */}
+      <InvestmentList holdings={cryptoWithPnL} />
 
       {/* 2026 Stock Fund Vault */}
       {stockFund && (
@@ -204,6 +115,12 @@ export default async function InvestmentsPage({
             Quỹ Đầu tư Cổ phiếu 2026
           </h2>
           <div className="space-y-4">
+            <div className="flex justify-between items-center -mt-2 mb-2">
+              <p className="text-xs text-muted-foreground font-medium">
+                Tiến độ
+              </p>
+              <EditGoalDialog goal={stockFund} />
+            </div>
             <div className="relative w-full h-40 rounded-2xl bg-gradient-to-b from-violet/5 to-violet/20 border border-violet/20 overflow-hidden">
               <div
                 className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-violet/40 to-violet/10 transition-all duration-1000"

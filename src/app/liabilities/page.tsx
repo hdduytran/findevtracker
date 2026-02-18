@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/db";
-import { formatCurrency, daysUntil, getProgressPercentage } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatCompactNumber,
+  daysUntil,
+  getProgressPercentage,
+} from "@/lib/utils";
 import {
   CreditCard,
   Clock,
@@ -12,6 +17,7 @@ import { PeriodFilter } from "@/components/period-filter";
 import { parsePeriod, getPeriodLabel } from "@/lib/period";
 import { Suspense } from "react";
 import { AddLiabilityDialog } from "@/components/add-liability-dialog";
+import { PayLiabilityDialog } from "@/components/pay-liability-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +29,46 @@ export default async function LiabilitiesPage({
   const { period: periodParam } = await searchParams;
   const period = parsePeriod(periodParam);
 
-  const liabilities = await prisma.liability.findMany({
-    orderBy: { dueDay: "asc" },
+  const [liabilities, accounts] = await Promise.all([
+    prisma.liability.findMany({
+      orderBy: { dueDay: "asc" },
+    }),
+    prisma.account.findMany(),
+  ]);
+
+  // Calculate paid amounts this month
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const linkedAccountIds = liabilities
+    .map((l) => l.linkedAccountId)
+    .filter(Boolean) as string[];
+  const liabilityIds = liabilities.map((l) => l.id);
+
+  const payments = await prisma.transaction.findMany({
+    where: {
+      date: { gte: startOfMonth },
+      OR: [
+        { liabilityId: { in: liabilityIds }, type: "EXPENSE" },
+        { toAccountId: { in: linkedAccountIds }, type: "TRANSFER" },
+      ],
+    },
+  });
+
+  const paidMap: Record<string, number> = {};
+  payments.forEach((tx) => {
+    // Installment payments
+    if (tx.liabilityId) {
+      paidMap[tx.liabilityId] = (paidMap[tx.liabilityId] || 0) + tx.amount;
+    }
+    // Credit card payments (transfers)
+    if (tx.toAccountId && tx.type === "TRANSFER") {
+      const l = liabilities.find(
+        (lib) => lib.linkedAccountId === tx.toAccountId
+      );
+      if (l) {
+        paidMap[l.id] = (paidMap[l.id] || 0) + tx.amount;
+      }
+    }
   });
 
   // Filter by period for timeline
@@ -43,22 +87,29 @@ export default async function LiabilitiesPage({
       maxDays = 365;
   }
 
-  const withDays = liabilities.map((l) => ({
-    ...l,
-    daysLeft: daysUntil(l.dueDay),
-    progress:
-      l.type === "INSTALLMENT"
-        ? getProgressPercentage(l.paidAmount, l.totalAmount)
-        : null,
-    installmentsDone:
-      l.type === "INSTALLMENT" && l.monthlyDue > 0
-        ? Math.round(l.paidAmount / l.monthlyDue)
-        : null,
-    totalInstallments:
-      l.type === "INSTALLMENT" && l.monthlyDue > 0
-        ? Math.round(l.totalAmount / l.monthlyDue)
-        : null,
-  }));
+  const withDays = liabilities.map((l) => {
+    const paidThisMonth = paidMap[l.id] || 0;
+    const remainingThisMonth = Math.max(0, l.monthlyDue - paidThisMonth);
+
+    return {
+      ...l,
+      daysLeft: daysUntil(l.dueDay),
+      paidThisMonth,
+      remainingThisMonth,
+      progress:
+        l.type === "INSTALLMENT"
+          ? getProgressPercentage(l.paidAmount, l.totalAmount)
+          : null,
+      installmentsDone:
+        l.type === "INSTALLMENT" && l.monthlyDue > 0
+          ? Math.round(l.paidAmount / l.monthlyDue)
+          : null,
+      totalInstallments:
+        l.type === "INSTALLMENT" && l.monthlyDue > 0
+          ? Math.round(l.totalAmount / l.monthlyDue)
+          : null,
+    };
+  });
 
   const filteredTimeline = withDays
     .filter((l) => l.daysLeft <= maxDays)
@@ -121,7 +172,7 @@ export default async function LiabilitiesPage({
         <div className="glass rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Tổng/tháng</p>
           <p className="text-lg font-bold text-amber">
-            {formatCurrency(totalMonthlyDue)}
+            {formatCompactNumber(totalMonthlyDue)}
           </p>
         </div>
         <div className="glass rounded-2xl p-4">
@@ -129,7 +180,7 @@ export default async function LiabilitiesPage({
             Đến hạn ({getPeriodLabel(period)})
           </p>
           <p className="text-lg font-bold text-violet">
-            {formatCurrency(totalFilteredDue)}
+            {formatCompactNumber(totalFilteredDue)}
           </p>
         </div>
         <div className="glass rounded-2xl p-4">
@@ -187,7 +238,7 @@ export default async function LiabilitiesPage({
               return (
                 <div
                   key={l.id}
-                  className="flex items-center justify-between py-3 px-4 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                  className="flex items-center justify-between py-3 px-4 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -208,21 +259,41 @@ export default async function LiabilitiesPage({
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">
-                      {formatCurrency(l.monthlyDue)}
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        l.daysLeft <= 3
-                          ? "text-rose font-bold"
-                          : l.daysLeft <= 7
-                          ? "text-amber"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {l.daysLeft === 0 ? "Hôm nay" : `${l.daysLeft} ngày`}
-                    </p>
+                  <div className="text-right flex items-center gap-4">
+                    <div className="hidden group-hover:block transition-all">
+                      <PayLiabilityDialog liability={l} accounts={accounts} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {formatCurrency(l.monthlyDue)}
+                      </p>
+                      {l.paidThisMonth > 0 ? (
+                        <div className="text-xs text-muted-foreground text-right">
+                          <p className="text-emerald">
+                            Đã trả: {formatCompactNumber(l.paidThisMonth)}
+                          </p>
+                          {l.remainingThisMonth > 0 ? (
+                            <p className="text-rose font-medium">
+                              Còn: {formatCompactNumber(l.remainingThisMonth)}
+                            </p>
+                          ) : (
+                            <p className="text-emerald font-bold">Xong!</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p
+                          className={`text-xs ${
+                            l.daysLeft <= 3
+                              ? "text-rose font-bold"
+                              : l.daysLeft <= 7
+                              ? "text-amber"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {l.daysLeft === 0 ? "Hôm nay" : `${l.daysLeft} ngày`}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -322,9 +393,12 @@ export default async function LiabilitiesPage({
                 <p className="text-xs text-muted-foreground">
                   Thanh toán tối thiểu
                 </p>
-                <p className="text-lg font-bold">
-                  {formatCurrency(l.monthlyDue)}
-                </p>
+                <div className="flex items-center justify-end gap-2">
+                  <PayLiabilityDialog liability={l} accounts={accounts} />
+                  <p className="text-lg font-bold">
+                    {formatCurrency(l.monthlyDue)}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

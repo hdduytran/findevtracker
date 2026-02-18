@@ -55,3 +55,16 @@ export function getProgressPercentage(paid: number, total: number): number {
   if (total === 0) return 0;
   return Math.min(Math.round((paid / total) * 100), 100);
 }
+
+export function formatCompactNumber(number: number): string {
+  if (number >= 1e9) {
+    return (number / 1e9).toFixed(1).replace(/\.0$/, "") + "B";
+  }
+  if (number >= 1e6) {
+    return (number / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+  }
+  if (number >= 1e3) {
+    return (number / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+  }
+  return number.toString();
+}
