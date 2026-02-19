@@ -1,5 +1,4 @@
 import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -7,10 +6,16 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   if (process.env.VERCEL || process.env.POSTGRES_PRISMA_URL) {
-    // Vercel / Production (Postgres)
-    return new PrismaClient({} as any);
+    // Vercel / Production — Neon Postgres via driver adapter
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaNeon } = require("@prisma/adapter-neon");
+    const connectionString = process.env.POSTGRES_PRISMA_URL;
+    const adapter = new PrismaNeon({ connectionString });
+    return new PrismaClient({ adapter });
   } else {
-    // Local Development (SQLite via driver adapter)
+    // Local Development — SQLite via driver adapter
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
     const url = process.env.DATABASE_URL || "file:./dev.db";
     const adapter = new PrismaBetterSqlite3({ url });
     return new PrismaClient({ adapter });
