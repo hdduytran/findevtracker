@@ -33,5 +33,6 @@
         "**/__pycache__": true,
         "**/__pycache__.*": true
     },
-    "hide-files.files": []
+    "hide-files.files": [],
+    "prisma.pinToPrisma6": false
 }
